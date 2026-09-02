@@ -5,10 +5,16 @@ import com.arextest.storage.repository.scenepool.ScenePoolProviderImpl;
 import com.arextest.storage.service.handler.mocker.coverage.CoverageHandlerSwitch;
 import com.arextest.storage.service.handler.mocker.coverage.DefaultCoverageSwitch;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+/**
+ * Mongo-backed scene pools. The mysql backend registers its own scene pool
+ * beans in MysqlStorageConfiguration.
+ */
 @Configuration
+@ConditionalOnProperty(name = "arex.storage.repository.type", havingValue = "mongodb")
 public class ScenePoolProviderConfiguration {
   @Bean
   @ConditionalOnMissingBean

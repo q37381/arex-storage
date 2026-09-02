@@ -761,8 +761,26 @@ final class DefaultMockResultProviderImpl implements MockResultProvider {
     if (totalBytes == null) {
       return EMPTY_SIZE;
     }
-    String totalText = new String(totalBytes);
-    return StringUtils.isEmpty(totalText) ? EMPTY_SIZE : Integer.parseInt(totalText);
+    
+    // Try parsing as ASCII string first (normal case)
+    try {
+      String totalText = new String(totalBytes, java.nio.charset.StandardCharsets.UTF_8);
+      return StringUtils.isEmpty(totalText) ? EMPTY_SIZE : Integer.parseInt(totalText);
+    } catch (NumberFormatException e) {
+      // Fallback: handle binary-encoded long from incrValue (8-byte big-endian)
+      LOGGER.warn("count key contains binary data, decoding as long: key={}", 
+          CacheKeyUtils.fromUtf8Bytes(countKey));
+      if (totalBytes.length >= 8) {
+        long value = java.nio.ByteBuffer.wrap(totalBytes).getLong();
+        return (int) value;
+      }
+      // Last resort: treat raw bytes as unsigned integer
+      long value = 0;
+      for (byte b : totalBytes) {
+        value = (value << 8) | (b & 0xFF);
+      }
+      return (int) value;
+    }
   }
 
   private byte[] createSequenceKey(byte[] src, int sequence) {

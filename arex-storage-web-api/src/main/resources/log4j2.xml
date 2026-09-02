@@ -1,11 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <Configuration>
   <Appenders>
-    <NoSql name="Mongo4">
-      <ArexMongoDb4 capped="true" collectionSize="104857600"
-        connection="${sys:arex.mongo.uri}"
-      />
-    </NoSql>
     <PrometheusAppender name="Prometheus" project="arex-storage">
     </PrometheusAppender>
     <RollingFile fileName="logs/app.log"
@@ -25,12 +20,7 @@
   </Appenders>
 
   <Loggers>
-    <Logger level="WARN" name="org.springframework.data.mongodb.core.convert.QueryMapper">
-      <AppenderRef ref="Mongo4"/>
-      <AppenderRef ref="Prometheus"/>
-    </Logger>
     <Logger level="INFO" name="com.arextest.storage">
-      <AppenderRef ref="Mongo4"/>
       <AppenderRef ref="Prometheus"/>
     </Logger>
     <Root level="info">

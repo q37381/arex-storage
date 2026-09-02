@@ -8,11 +8,18 @@ import com.arextest.config.repository.impl.DynamicClassConfigurationRepositoryIm
 import com.arextest.config.repository.impl.InstancesConfigurationRepositoryImpl;
 import com.arextest.config.repository.impl.ServiceCollectConfigurationRepositoryImpl;
 import com.arextest.config.repository.impl.SystemConfigurationRepositoryImpl;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.mongodb.core.MongoTemplate;
 
+/**
+ * Mongo-backed config repositories. Only active for the mongodb backend; the
+ * mysql backend registers relational implementations in
+ * {@link ConfigMysqlAutoConfiguration}.
+ */
 @Configuration(proxyBeanMethods = false)
+@ConditionalOnProperty(name = "arex.storage.repository.type", havingValue = "mongodb")
 public class ConfigServiceAutoConfiguration {
 
   // the bean about config to register

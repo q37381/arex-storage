@@ -7,6 +7,7 @@ import com.arextest.storage.repository.AppContractRepository;
 import java.util.List;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
@@ -18,6 +19,7 @@ import org.springframework.stereotype.Repository;
  */
 @RequiredArgsConstructor
 @Repository
+@ConditionalOnProperty(name = "arex.storage.repository.type", havingValue = "mongodb")
 public class AppContractRepositoryImpl implements AppContractRepository {
   private final MongoTemplate mongoTemplate;
 

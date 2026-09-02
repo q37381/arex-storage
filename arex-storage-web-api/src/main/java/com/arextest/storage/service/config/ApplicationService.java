@@ -33,6 +33,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.bson.Document;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.stereotype.Component;
@@ -71,8 +72,12 @@ public class ApplicationService {
   @Resource
   private ServiceCollectConfigurationRepositoryImpl serviceCollectConfigurationRepository;
 
+  /**
+   * Only present with the mongodb backend; the mysql backend skips the
+   * mongo-specific config cleanup below.
+   */
   @Resource
-  private MongoTemplate mongoTemplate;
+  private ObjectProvider<MongoTemplate> mongoTemplateProvider;
 
   public AddApplicationResponse addApplication(AddApplicationRequest request) {
     AddApplicationResponse response = new AddApplicationResponse();
@@ -142,11 +147,14 @@ public class ApplicationService {
     serviceCollectConfigurationRepository.removeByAppId(appId);
 
     // remove ReplayScheduleConfig
-    mongoTemplate.getCollection(Constants.REPLAY_SCHEDULE_CONFIG_COLLECTION_NAME)
-        .deleteMany(new Document(Constants.APP_ID, appId));
+    MongoTemplate mongoTemplate = mongoTemplateProvider.getIfAvailable();
+    if (mongoTemplate != null) {
+      mongoTemplate.getCollection(Constants.REPLAY_SCHEDULE_CONFIG_COLLECTION_NAME)
+          .deleteMany(new Document(Constants.APP_ID, appId));
 
-    // remove the config about comparison
-    removeComparisonConfig(appId);
+      // remove the config about comparison
+      removeComparisonConfig(appId, mongoTemplate);
+    }
     return true;
   }
 
@@ -200,7 +208,7 @@ public class ApplicationService {
     }
   }
 
-  private void removeComparisonConfig(String appId) {
+  private void removeComparisonConfig(String appId, MongoTemplate mongoTemplate) {
     // remove the config about comparison
     List<String> COMPARISON_CONFIG_COLLECTIONS = Arrays.asList(
         Constants.CONFIG_COMPARISON_ENCRYPTION_COLLECTION_NAME,

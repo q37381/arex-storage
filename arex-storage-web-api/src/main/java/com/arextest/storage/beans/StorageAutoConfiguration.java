@@ -42,7 +42,9 @@ import com.arextest.storage.service.ScenePoolService;
 import com.arextest.storage.service.ScheduleReplayingService;
 import com.arextest.storage.service.config.ApplicationService;
 import com.arextest.storage.service.handler.mocker.coverage.CoverageEventListener;
+import com.arextest.storage.service.handler.mocker.coverage.CoverageHandlerSwitch;
 import com.arextest.storage.service.handler.mocker.coverage.DefaultCoverageEventListener;
+import com.arextest.storage.service.handler.mocker.coverage.DefaultCoverageSwitch;
 import com.arextest.storage.service.listener.AgentWorkingListener;
 import com.arextest.storage.service.listener.AutoDiscoveryEntryPointListener;
 import com.mongodb.client.MongoCollection;
@@ -107,6 +109,7 @@ public class StorageAutoConfiguration {
 
   @Bean
   @ConditionalOnMissingBean
+  @ConditionalOnProperty(name = "arex.storage.repository.type", havingValue = "mongodb")
   public MongoDatabaseFactory mongoDbFactory() {
     try {
       SimpleMongoClientDatabaseFactory factory = new SimpleMongoClientDatabaseFactory(
@@ -125,12 +128,14 @@ public class StorageAutoConfiguration {
 
   @Bean
   @ConditionalOnMissingBean(MongoOperations.class)
+  @ConditionalOnProperty(name = "arex.storage.repository.type", havingValue = "mongodb")
   MongoTemplate mongoTemplate(MongoDatabaseFactory factory, MongoConverter converter) {
     return new MongoTemplate(factory, converter);
   }
 
   @Bean
   @ConditionalOnMissingBean(DesensitizationProvider.class)
+  @ConditionalOnProperty(name = "arex.storage.repository.type", havingValue = "mongodb")
   DesensitizationProvider desensitizationProvider(MongoDatabaseFactory factory) {
     String desensitizationJarUrl = DataDesensitizationUtils.getDesensitizationJarUrl(
         factory.getMongoDatabase());
@@ -138,12 +143,14 @@ public class StorageAutoConfiguration {
   }
 
   @Bean
+  @ConditionalOnMissingBean(DataDesensitization.class)
   DataDesensitization dataDesensitization(DesensitizationProvider desensitizationProvider) {
     return desensitizationProvider.get();
   }
 
   @Bean
   @ConditionalOnMissingBean(MongoCustomConversions.class)
+  @ConditionalOnProperty(name = "arex.storage.repository.type", havingValue = "mongodb")
   public MongoCustomConversions customConversions(DataDesensitization dataDesensitization) {
     return MongoCustomConversions.create((adapter) -> {
       // Type based converter
@@ -161,6 +168,7 @@ public class StorageAutoConfiguration {
 
   @Bean
   @ConditionalOnMissingBean(MongoConverter.class)
+  @ConditionalOnProperty(name = "arex.storage.repository.type", havingValue = "mongodb")
   MappingMongoConverter mappingMongoConverter(MongoDatabaseFactory factory,
       MongoMappingContext context,
       MongoCustomConversions conversions) {
@@ -308,8 +316,17 @@ public class StorageAutoConfiguration {
     return new DefaultCoverageEventListener();
   }
 
+  // Unconditionally registered: in mongo mode ScenePoolProviderConfiguration also
+  // declares one, but that whole class is disabled in mysql mode.
+  @Bean
+  @ConditionalOnMissingBean(CoverageHandlerSwitch.class)
+  public CoverageHandlerSwitch coverageHandlerSwitch() {
+    return new DefaultCoverageSwitch();
+  }
+
   @Bean
   @Order(3)
+  @ConditionalOnProperty(name = "arex.storage.repository.type", havingValue = "mongodb")
   public RepositoryProvider<AREXMocker> autoPinnedMockerProvider(MongoTemplate mongoTemplate,
       Set<MockCategoryType> entryPointTypes, DefaultApplicationConfig defaultApplicationConfig) {
     return new AREXMockerMongoRepositoryProvider(ProviderNames.AUTO_PINNED, mongoTemplate,
@@ -319,6 +336,7 @@ public class StorageAutoConfiguration {
 
   @Bean
   @Order(2)
+  @ConditionalOnProperty(name = "arex.storage.repository.type", havingValue = "mongodb")
   public RepositoryProvider<AREXMocker> pinnedMockerProvider(MongoTemplate mongoTemplate,
       Set<MockCategoryType> entryPointTypes, DefaultApplicationConfig defaultApplicationConfig) {
     return new AREXMockerMongoRepositoryProvider(ProviderNames.PINNED, mongoTemplate, properties,
@@ -327,6 +345,7 @@ public class StorageAutoConfiguration {
 
   @Bean
   @Order(1)
+  @ConditionalOnProperty(name = "arex.storage.repository.type", havingValue = "mongodb")
   public RepositoryProvider<AREXMocker> defaultMockerProvider(MongoTemplate mongoTemplate,
       Set<MockCategoryType> entryPointTypes, DefaultApplicationConfig defaultApplicationConfig) {
     return new AREXMockerMongoRepositoryProvider(mongoTemplate, properties, entryPointTypes,
@@ -335,6 +354,7 @@ public class StorageAutoConfiguration {
 
   @Bean
   @Order(4)
+  @ConditionalOnProperty(name = "arex.storage.repository.type", havingValue = "mongodb")
   public RepositoryProvider<AREXQueryMocker> defaultQueryMockerProvider(MongoTemplate mongoTemplate,
       Set<MockCategoryType> entryPointTypes, DefaultApplicationConfig defaultApplicationConfig) {
     return new AREXQueryMockerMongoRepositoryProvider(mongoTemplate, properties, entryPointTypes,
@@ -343,6 +363,7 @@ public class StorageAutoConfiguration {
 
   @Bean
   @Order(5)
+  @ConditionalOnProperty(name = "arex.storage.repository.type", havingValue = "mongodb")
   public RepositoryProvider<AREXQueryMocker> pinnedQueryMockerProvider(MongoTemplate mongoTemplate,
       Set<MockCategoryType> entryPointTypes, DefaultApplicationConfig defaultApplicationConfig) {
     return new AREXQueryMockerMongoRepositoryProvider(ProviderNames.PINNED, mongoTemplate,

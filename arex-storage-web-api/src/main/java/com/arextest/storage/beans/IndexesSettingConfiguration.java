@@ -27,10 +27,16 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.tuple.Pair;
 import org.bson.Document;
 import org.bson.conversions.Bson;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Configuration;
 
+/**
+ * Mongo TTL/normal index bootstrap. Only active for the mongodb backend;
+ * the mysql backend replaces TTL indexes with a scheduled cleanup task.
+ */
 @Slf4j
 @Configuration(proxyBeanMethods = false)
+@ConditionalOnProperty(name = "arex.storage.repository.type", havingValue = "mongodb")
 public class IndexesSettingConfiguration {
 
   private static final String EXPIRATION_TIME_COLUMN_NAME = "expirationTime";
