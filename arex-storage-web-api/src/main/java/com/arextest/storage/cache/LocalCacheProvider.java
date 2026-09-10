@@ -206,8 +206,17 @@ public class LocalCacheProvider implements CacheProvider {
     return null;
   }
 
-  private static long expireAt(long expiredMs) {
-    return expiredMs <= 0 ? NO_EXPIRE : System.currentTimeMillis() + expiredMs;
+  /**
+   * The CacheProvider expiration parameter is in SECONDS: the redis edition maps
+   * it to Jedis.setex (TTL in seconds) and every caller passes
+   * {@code cacheExpiredSeconds}. Convert seconds -> millis here. Treating it as
+   * millis maexpireAtvery entry expire ~1000x too soon - notably the replay-result
+   * cache the schedule reads back for comparison, so replay results vanished
+   * before the comparison ran and every case compared expireAt msgMiss / "invalid".
+   */
+  private static long expireAt(long expiredSeconds) {
+    return expiredSeconds <= 0 ? NO_EXPIRE
+        : System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(expiredSeconds);
   }
 
   private static byte[] longToBytes(long value) {
