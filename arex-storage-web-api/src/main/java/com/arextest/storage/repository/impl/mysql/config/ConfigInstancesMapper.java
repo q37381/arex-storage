@@ -9,20 +9,20 @@ import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 
 /**
- * Mapper of config_instances. seq (auto increment) stands in for mongo's _id
+ * Mapper of config_instances. auto_id (auto increment) stands in for mongo's _id
  * ordering used by the record-machine allocation logic (ASC).
  */
 @Mapper
 public interface ConfigInstancesMapper {
 
-  String COLUMNS = "seq, id, app_id, host, record_version, data_update_time, agent_status, "
+  String COLUMNS = "auto_id, id, app_id, host, record_version, data_update_time, agent_status, "
       + "tags, system_env, system_properties, extend_field, data_change_create_time, "
       + "data_change_update_time";
 
   @Select("SELECT " + COLUMNS + " FROM config_instances WHERE app_id = #{appId}")
   List<Instances> selectByAppId(@Param("appId") String appId);
 
-  @Select("SELECT " + COLUMNS + " FROM config_instances WHERE app_id = #{appId} ORDER BY seq ASC")
+  @Select("SELECT " + COLUMNS + " FROM config_instances WHERE app_id = #{appId} ORDER BY auto_id ASC")
   List<Instances> selectByAppIdOrdered(@Param("appId") String appId);
 
   /**

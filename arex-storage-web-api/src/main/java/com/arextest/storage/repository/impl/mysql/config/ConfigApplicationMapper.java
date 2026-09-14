@@ -10,18 +10,18 @@ import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 
 /**
- * Mapper of config_application. seq (auto increment) stands in for mongo's
+ * Mapper of config_application. auto_id (auto increment) stands in for mongo's
  * ObjectId ordering: list() shows newest first, matching _id DESC.
  */
 @Mapper
 public interface ConfigApplicationMapper {
 
-  String COLUMNS = "seq, id, app_id, features, group_name, group_id, agent_version, "
+  String COLUMNS = "auto_id, id, app_id, features, group_name, group_id, agent_version, "
       + "agent_ext_version, app_name, description, category, owner, owners, organization_name, "
       + "recorded_case_count, organization_id, status, visibility_level, tags, "
       + "data_change_create_time, data_change_update_time";
 
-  @Select("SELECT " + COLUMNS + " FROM config_application ORDER BY seq DESC")
+  @Select("SELECT " + COLUMNS + " FROM config_application ORDER BY auto_id DESC")
   List<Application> selectAll();
 
   @Select("SELECT " + COLUMNS + " FROM config_application WHERE app_id = #{appId}")

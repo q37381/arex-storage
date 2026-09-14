@@ -37,7 +37,7 @@ public interface ScenePoolMapper {
 
   @Select("SELECT record_id FROM scene_pool "
       + "WHERE provider_name = #{provider} AND app_id = #{appId} "
-      + "ORDER BY id ASC LIMIT #{offset}, #{limit}")
+      + "ORDER BY auto_id ASC LIMIT #{offset}, #{limit}")
   List<String> selectRecordIdsByAppId(@Param("provider") String provider,
       @Param("appId") String appId, @Param("offset") int offset, @Param("limit") int limit);
 
