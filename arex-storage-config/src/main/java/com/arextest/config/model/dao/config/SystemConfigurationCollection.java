@@ -32,6 +32,7 @@ public class SystemConfigurationCollection extends BaseEntity {
   private ComparePluginInfo comparePluginInfo;
   private String jwtSeed;
   private Set<String> ignoreNodeSet;
+  private String configValue;
 
 
   public interface KeySummary {
@@ -42,5 +43,6 @@ public class SystemConfigurationCollection extends BaseEntity {
     String COMPARE_PLUGIN_INFO = "compare_plugin_info";
     String JWT_SEED = "jwt_seed";
     String IGNORE_NODE_SET = "ignore_node_set";
+    String AGENT_GLOBAL_CONFIG = "agent_global_config";
   }
 }

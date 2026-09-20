@@ -216,6 +216,7 @@ CREATE TABLE IF NOT EXISTS `config_system` (
   `compare_plugin_info`     TEXT         DEFAULT NULL COMMENT 'JSON object',
   `jwt_seed`                VARCHAR(255) DEFAULT NULL,
   `ignore_node_set`         TEXT         DEFAULT NULL COMMENT 'JSON array',
+  `config_value`          TEXT         DEFAULT NULL COMMENT 'generic config value (JSON or string)',
   `data_change_create_time` BIGINT       DEFAULT NULL,
   `data_change_update_time` BIGINT       DEFAULT NULL,
   PRIMARY KEY (`auto_id`),

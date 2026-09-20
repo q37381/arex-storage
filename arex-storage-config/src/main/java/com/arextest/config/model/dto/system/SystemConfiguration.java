@@ -24,6 +24,10 @@ public class SystemConfiguration {
   private ComparePluginInfo comparePluginInfo;
   private String jwtSeed;
   private Set<String> ignoreNodeSet;
+  /**
+   * Generic config value (JSON or plain string), used for extensible key-value configs.
+   */
+  private String configValue;
 
   public static SystemConfiguration mergeConfigs(List<SystemConfiguration> systemConfigurations) {
     if (systemConfigurations == null || systemConfigurations.isEmpty()) {
@@ -48,6 +52,9 @@ public class SystemConfiguration {
       }
       if (systemConfiguration.getIgnoreNodeSet() != null) {
         result.setIgnoreNodeSet(systemConfiguration.getIgnoreNodeSet());
+      }
+      if (systemConfiguration.getConfigValue() != null) {
+        result.setConfigValue(systemConfiguration.getConfigValue());
       }
     }
     return result;

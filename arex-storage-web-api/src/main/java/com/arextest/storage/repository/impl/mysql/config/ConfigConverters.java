@@ -319,6 +319,7 @@ final class ConfigConverters {
         ComparePluginInfo.class));
     dto.setJwtSeed(entity.getJwtSeed());
     dto.setIgnoreNodeSet(ConfigJsonSupport.readJson(entity.getIgnoreNodeSet(), STRING_SET));
+    dto.setConfigValue(entity.getConfigValue());
     return dto;
   }
 
@@ -333,6 +334,7 @@ final class ConfigConverters {
     entity.setComparePluginInfo(ConfigJsonSupport.writeJson(dto.getComparePluginInfo()));
     entity.setJwtSeed(dto.getJwtSeed());
     entity.setIgnoreNodeSet(ConfigJsonSupport.writeJson(dto.getIgnoreNodeSet()));
+    entity.setConfigValue(dto.getConfigValue());
     return entity;
   }
 

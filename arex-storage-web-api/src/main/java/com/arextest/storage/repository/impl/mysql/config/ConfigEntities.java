@@ -130,6 +130,7 @@ public final class ConfigEntities {
     private String comparePluginInfo;
     private String jwtSeed;
     private String ignoreNodeSet;
+    private String configValue;
     private Long dataChangeCreateTime;
     private Long dataChangeUpdateTime;
   }

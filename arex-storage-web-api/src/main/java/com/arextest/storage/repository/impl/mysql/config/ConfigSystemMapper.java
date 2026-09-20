@@ -15,8 +15,8 @@ import org.apache.ibatis.annotations.Select;
 public interface ConfigSystemMapper {
 
   String COLUMNS = "id, config_key, refresh_task_mark, desensitization_jar, callback_url, "
-      + "auth_switch, compare_plugin_info, jwt_seed, ignore_node_set, data_change_create_time, "
-      + "data_change_update_time";
+      + "auth_switch, compare_plugin_info, jwt_seed, ignore_node_set, config_value, "
+      + "data_change_create_time, data_change_update_time";
 
   @Select("SELECT " + COLUMNS + " FROM config_system")
   List<System> selectAll();
@@ -31,10 +31,10 @@ public interface ConfigSystemMapper {
    */
   @Insert("INSERT INTO config_system (id, config_key, refresh_task_mark, desensitization_jar, "
       + "callback_url, auth_switch, compare_plugin_info, jwt_seed, ignore_node_set, "
-      + "data_change_create_time, data_change_update_time) VALUES "
+      + "config_value, data_change_create_time, data_change_update_time) VALUES "
       + "(#{it.id}, #{it.configKey}, #{it.refreshTaskMark}, #{it.desensitizationJar}, "
       + "#{it.callbackUrl}, #{it.authSwitch}, #{it.comparePluginInfo}, #{it.jwtSeed}, "
-      + "#{it.ignoreNodeSet}, #{it.dataChangeCreateTime}, #{it.dataChangeUpdateTime}) "
+      + "#{it.ignoreNodeSet}, #{it.configValue}, #{it.dataChangeCreateTime}, #{it.dataChangeUpdateTime}) "
       + "ON DUPLICATE KEY UPDATE "
       + "refresh_task_mark = COALESCE(VALUES(refresh_task_mark), refresh_task_mark), "
       + "desensitization_jar = COALESCE(VALUES(desensitization_jar), desensitization_jar), "
@@ -43,6 +43,7 @@ public interface ConfigSystemMapper {
       + "compare_plugin_info = COALESCE(VALUES(compare_plugin_info), compare_plugin_info), "
       + "jwt_seed = COALESCE(VALUES(jwt_seed), jwt_seed), "
       + "ignore_node_set = COALESCE(VALUES(ignore_node_set), ignore_node_set), "
+      + "config_value = COALESCE(VALUES(config_value), config_value), "
       + "data_change_update_time = VALUES(data_change_update_time)")
   int upsert(@Param("it") System entity);
 

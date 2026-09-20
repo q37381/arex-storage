@@ -82,6 +82,8 @@ public final class AgentRemoteConfigurationController {
   @Resource
   private QueryConfigService queryConfigService;
   @Resource
+  private com.arextest.config.repository.SystemConfigurationRepository systemConfigurationRepository;
+  @Resource
   private ObjectMapper objectMapper;
 
   @PostMapping("/load")
@@ -117,7 +119,10 @@ public final class AgentRemoteConfigurationController {
       AgentRemoteConfigurationResponse body = new AgentRemoteConfigurationResponse();
       body.setDynamicClassConfigurationList(dynamicClassHandler.useResultAsList(appId));
       body.setServiceCollectConfiguration(collectConfig);
-      body.setExtendField(getExtendField(collectConfig));
+      // merge: global config (lowest) -> per-app config -> instance config (highest)
+      Map<String, String> mergedExtendField = new HashMap<>(loadAgentGlobalConfig());
+      mergedExtendField.putAll(getExtendField(collectConfig));
+      body.setExtendField(mergedExtendField);
       body.setStatus(applicationConfiguration.getStatus());
 
       InstancesConfiguration sourceInstance = fullInstance.stream()
@@ -218,6 +223,21 @@ public final class AgentRemoteConfigurationController {
   }
 
 
+
+  @SuppressWarnings("unchecked")
+  private Map<String, String> loadAgentGlobalConfig() {
+    try {
+      com.arextest.config.model.dto.system.SystemConfiguration sysConfig =
+          systemConfigurationRepository.getSystemConfigByKey(
+              com.arextest.config.model.dao.config.SystemConfigurationCollection.KeySummary.AGENT_GLOBAL_CONFIG);
+      if (sysConfig != null && StringUtils.isNotEmpty(sysConfig.getConfigValue())) {
+        return objectMapper.readValue(sysConfig.getConfigValue(), Map.class);
+      }
+    } catch (Exception e) {
+      LOGGER.error("load agent global config error", e);
+    }
+    return java.util.Collections.emptyMap();
+  }
 
   private Map<String, String> getExtendField(
       ServiceCollectConfiguration serviceCollectConfiguration) {
