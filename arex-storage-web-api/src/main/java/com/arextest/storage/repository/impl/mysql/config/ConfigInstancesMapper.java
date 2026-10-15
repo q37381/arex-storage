@@ -7,6 +7,7 @@ import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.Update;
 
 /**
  * Mapper of config_instances. auto_id (auto increment) stands in for mongo's _id
@@ -16,8 +17,9 @@ import org.apache.ibatis.annotations.Select;
 public interface ConfigInstancesMapper {
 
   String COLUMNS = "auto_id, id, app_id, host, record_version, data_update_time, agent_status, "
-      + "tags, system_env, system_properties, extend_field, data_change_create_time, "
-      + "data_change_update_time";
+      + "tags, system_env, system_properties, extend_field, last_load_time, last_load_version, "
+      + "last_load_config, last_heartbeat_time, agent_current_rate, agent_decelerate_code, "
+      + "data_change_create_time, data_change_update_time";
 
   @Select("SELECT " + COLUMNS + " FROM config_instances WHERE app_id = #{appId}")
   List<Instances> selectByAppId(@Param("appId") String appId);
@@ -46,6 +48,31 @@ public interface ConfigInstancesMapper {
       + "extend_field = COALESCE(VALUES(extend_field), extend_field), "
       + "data_change_update_time = VALUES(data_change_update_time)")
   int upsert(@Param("it") Instances entity);
+
+  /**
+   * Records what the agent actually pulled on /api/config/agent/load. Kept out
+   * of the upsert above so that neither an agent report nor a console edit can
+   * clobber the trace; the row is guaranteed to exist because the upsert runs
+   * first.
+   */
+  @Update("UPDATE config_instances SET last_load_time = #{loadTime}, "
+      + "last_load_version = #{loadVersion}, last_load_config = #{loadConfig} "
+      + "WHERE app_id = #{appId} AND host = #{host}")
+  int updateLoadTrace(@Param("appId") String appId, @Param("host") String host,
+      @Param("loadTime") long loadTime, @Param("loadVersion") Long loadVersion,
+      @Param("loadConfig") String loadConfig);
+
+  /**
+   * Records the per-minute heartbeat together with the rate the agent really
+   * applies - the agent has reported currentRate/decelerateCode all along, it
+   * was just dropped before.
+   */
+  @Update("UPDATE config_instances SET last_heartbeat_time = #{heartbeatTime}, "
+      + "agent_current_rate = #{currentRate}, agent_decelerate_code = #{decelerateCode} "
+      + "WHERE app_id = #{appId} AND host = #{host}")
+  int updateHeartbeatTrace(@Param("appId") String appId, @Param("host") String host,
+      @Param("heartbeatTime") long heartbeatTime, @Param("currentRate") String currentRate,
+      @Param("decelerateCode") Integer decelerateCode);
 
   @Delete("DELETE FROM config_instances WHERE app_id = #{appId}")
   int deleteByAppId(@Param("appId") String appId);

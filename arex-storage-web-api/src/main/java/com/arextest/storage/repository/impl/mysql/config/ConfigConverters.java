@@ -1,6 +1,7 @@
 package com.arextest.storage.repository.impl.mysql.config;
 
 import com.arextest.config.model.dto.ComparisonExclusionsConfiguration;
+import com.arextest.config.model.dao.config.SystemConfigurationCollection;
 import com.arextest.config.model.dto.application.ApplicationConfiguration;
 import com.arextest.config.model.dto.application.ApplicationOperationConfiguration;
 import com.arextest.config.model.dto.application.ApplicationServiceConfiguration;
@@ -45,6 +46,9 @@ final class ConfigConverters {
       };
   private static final TypeReference<Map<String, String>> STRING_MAP =
       new TypeReference<Map<String, String>>() {
+      };
+  private static final TypeReference<Map<String, Object>> STRING_OBJ_MAP =
+      new TypeReference<Map<String, Object>>() {
       };
   private static final TypeReference<Map<String, Integer>> STRING_INT_MAP =
       new TypeReference<Map<String, Integer>>() {
@@ -280,6 +284,13 @@ final class ConfigConverters {
     dto.setSystemEnv(ConfigJsonSupport.readJson(entity.getSystemEnv(), STRING_MAP));
     dto.setSystemProperties(ConfigJsonSupport.readJson(entity.getSystemProperties(), STRING_MAP));
     dto.setExtendField(ConfigJsonSupport.readJson(entity.getExtendField(), STRING_MAP));
+    // read-only config-delivery trace, see ConfigInstancesMapper.updateLoadTrace
+    dto.setLastLoadTime(entity.getLastLoadTime());
+    dto.setLastLoadVersion(entity.getLastLoadVersion());
+    dto.setLastLoadConfig(ConfigJsonSupport.readJson(entity.getLastLoadConfig(), STRING_OBJ_MAP));
+    dto.setLastHeartbeatTime(entity.getLastHeartbeatTime());
+    dto.setAgentCurrentRate(entity.getAgentCurrentRate());
+    dto.setAgentDecelerateCode(entity.getAgentDecelerateCode());
     dto.setModifiedTime(ConfigJsonSupport.toTimestamp(entity.getDataChangeUpdateTime()));
     return dto;
   }
@@ -301,7 +312,7 @@ final class ConfigConverters {
     return entity;
   }
 
-  // ---------------- system configuration ----------------
+  // ---------------- system configuration (key-value dispatch) ----------------
 
   static SystemConfiguration toDto(System entity) {
     if (entity == null) {
@@ -309,17 +320,38 @@ final class ConfigConverters {
     }
     SystemConfiguration dto = new SystemConfiguration();
     dto.setKey(entity.getConfigKey());
-    dto.setRefreshTaskMark(ConfigJsonSupport.readJson(entity.getRefreshTaskMark(),
-        STRING_INT_MAP));
-    dto.setDesensitizationJar(ConfigJsonSupport.readJson(entity.getDesensitizationJar(),
-        DesensitizationJar.class));
-    dto.setCallbackUrl(entity.getCallbackUrl());
-    dto.setAuthSwitch(entity.getAuthSwitch());
-    dto.setComparePluginInfo(ConfigJsonSupport.readJson(entity.getComparePluginInfo(),
-        ComparePluginInfo.class));
-    dto.setJwtSeed(entity.getJwtSeed());
-    dto.setIgnoreNodeSet(ConfigJsonSupport.readJson(entity.getIgnoreNodeSet(), STRING_SET));
-    dto.setConfigValue(entity.getConfigValue());
+    String value = entity.getConfigValue();
+    if (value == null) {
+      return dto;
+    }
+    switch (entity.getConfigKey()) {
+      case SystemConfigurationCollection.KeySummary.AUTH_SWITCH:
+        dto.setAuthSwitch(Boolean.parseBoolean(value));
+        break;
+      case SystemConfigurationCollection.KeySummary.CALLBACK_URL:
+        dto.setCallbackUrl(value);
+        break;
+      case SystemConfigurationCollection.KeySummary.JWT_SEED:
+        dto.setJwtSeed(value);
+        break;
+      case SystemConfigurationCollection.KeySummary.REFRESH_DATA:
+        dto.setRefreshTaskMark(ConfigJsonSupport.readJson(value, STRING_INT_MAP));
+        break;
+      case SystemConfigurationCollection.KeySummary.DESERIALIZATION_JAR:
+        dto.setDesensitizationJar(ConfigJsonSupport.readJson(value, DesensitizationJar.class));
+        break;
+      case SystemConfigurationCollection.KeySummary.COMPARE_PLUGIN_INFO:
+        dto.setComparePluginInfo(ConfigJsonSupport.readJson(value, ComparePluginInfo.class));
+        break;
+      case SystemConfigurationCollection.KeySummary.IGNORE_NODE_SET:
+        dto.setIgnoreNodeSet(ConfigJsonSupport.readJson(value, STRING_SET));
+        break;
+      default:
+        // agent_global_config, the *_GLOBAL_DEFAULT typed configs and future extensible keys are
+        // stored as raw JSON and parsed generically through SystemConfigKeys
+        dto.setConfigValue(value);
+        break;
+    }
     return dto;
   }
 
@@ -327,15 +359,32 @@ final class ConfigConverters {
     System entity = new System();
     entity.setId(ConfigJsonSupport.newId());
     entity.setConfigKey(dto.getKey());
-    entity.setRefreshTaskMark(ConfigJsonSupport.writeJson(dto.getRefreshTaskMark()));
-    entity.setDesensitizationJar(ConfigJsonSupport.writeJson(dto.getDesensitizationJar()));
-    entity.setCallbackUrl(dto.getCallbackUrl());
-    entity.setAuthSwitch(dto.getAuthSwitch());
-    entity.setComparePluginInfo(ConfigJsonSupport.writeJson(dto.getComparePluginInfo()));
-    entity.setJwtSeed(dto.getJwtSeed());
-    entity.setIgnoreNodeSet(ConfigJsonSupport.writeJson(dto.getIgnoreNodeSet()));
-    entity.setConfigValue(dto.getConfigValue());
+    entity.setConfigValue(serializeSystemValue(dto));
     return entity;
+  }
+
+  private static String serializeSystemValue(SystemConfiguration dto) {
+    if (dto.getKey() == null) {
+      return dto.getConfigValue();
+    }
+    switch (dto.getKey()) {
+      case SystemConfigurationCollection.KeySummary.AUTH_SWITCH:
+        return dto.getAuthSwitch() == null ? null : dto.getAuthSwitch().toString();
+      case SystemConfigurationCollection.KeySummary.CALLBACK_URL:
+        return dto.getCallbackUrl();
+      case SystemConfigurationCollection.KeySummary.JWT_SEED:
+        return dto.getJwtSeed();
+      case SystemConfigurationCollection.KeySummary.REFRESH_DATA:
+        return ConfigJsonSupport.writeJson(dto.getRefreshTaskMark());
+      case SystemConfigurationCollection.KeySummary.DESERIALIZATION_JAR:
+        return ConfigJsonSupport.writeJson(dto.getDesensitizationJar());
+      case SystemConfigurationCollection.KeySummary.COMPARE_PLUGIN_INFO:
+        return ConfigJsonSupport.writeJson(dto.getComparePluginInfo());
+      case SystemConfigurationCollection.KeySummary.IGNORE_NODE_SET:
+        return ConfigJsonSupport.writeJson(dto.getIgnoreNodeSet());
+      default:
+        return dto.getConfigValue();
+    }
   }
 
   // ---------------- comparison exclusions ----------------

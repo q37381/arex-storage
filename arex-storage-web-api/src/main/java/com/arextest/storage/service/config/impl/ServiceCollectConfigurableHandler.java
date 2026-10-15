@@ -2,9 +2,13 @@ package com.arextest.storage.service.config.impl;
 
 import com.arextest.config.model.dto.application.InstancesConfiguration;
 import com.arextest.config.model.dto.record.ServiceCollectConfiguration;
+import com.arextest.config.model.dto.system.RecordGlobalDefault;
 import com.arextest.config.repository.ConfigRepositoryProvider;
+import com.arextest.config.repository.SystemConfigurationRepository;
+import com.arextest.config.system.SystemConfigKeys;
 import com.arextest.storage.service.config.AbstractConfigurableHandler;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -15,6 +19,8 @@ import jakarta.annotation.Resource;
 import jakarta.validation.constraints.NotNull;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
+import org.apache.commons.collections4.MapUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -30,8 +36,13 @@ import org.springframework.stereotype.Component;
 public final class ServiceCollectConfigurableHandler extends
     AbstractConfigurableHandler<ServiceCollectConfiguration> {
 
+  private static final String INCLUDE_SERVICE_OPERATIONS = "includeServiceOperations";
+
   @Resource
   private ServiceCollectConfiguration globalDefaultConfiguration;
+
+  @Resource
+  private SystemConfigurationRepository systemConfigurationRepository;
 
   private ServiceCollectConfigurableHandler(
       @Autowired ConfigRepositoryProvider<ServiceCollectConfiguration> repositoryProvider) {
@@ -42,16 +53,24 @@ public final class ServiceCollectConfigurableHandler extends
   public List<ServiceCollectConfiguration> createFromGlobalDefault(String appId) {
     ServiceCollectConfiguration serviceCollectConfiguration = new ServiceCollectConfiguration();
     serviceCollectConfiguration.setAppId(appId);
-    serviceCollectConfiguration.setSampleRate(globalDefaultConfiguration.getSampleRate());
-    serviceCollectConfiguration.setAllowDayOfWeeks(globalDefaultConfiguration.getAllowDayOfWeeks());
-    serviceCollectConfiguration.setTimeMock(globalDefaultConfiguration.isTimeMock());
-    serviceCollectConfiguration.setAllowTimeOfDayFrom(
-        globalDefaultConfiguration.getAllowTimeOfDayFrom());
-    serviceCollectConfiguration.setAllowTimeOfDayTo(
-        globalDefaultConfiguration.getAllowTimeOfDayTo());
+    serviceCollectConfiguration.setSampleRate(effectiveGlobal().getSampleRate());
+    serviceCollectConfiguration.setAllowDayOfWeeks(effectiveGlobal().getAllowDayOfWeeks());
+    serviceCollectConfiguration.setTimeMock(effectiveGlobal().isTimeMock());
+    serviceCollectConfiguration.setAllowTimeOfDayFrom(effectiveGlobal().getAllowTimeOfDayFrom());
+    serviceCollectConfiguration.setAllowTimeOfDayTo(effectiveGlobal().getAllowTimeOfDayTo());
     serviceCollectConfiguration.setRecordMachineCountLimit(
-        globalDefaultConfiguration.getRecordMachineCountLimit() == null ? 1
-            : globalDefaultConfiguration.getRecordMachineCountLimit());
+        effectiveGlobal().getRecordMachineCountLimit() == null ? 1
+            : effectiveGlobal().getRecordMachineCountLimit());
+    if (CollectionUtils.isNotEmpty(effectiveGlobal().getExcludeServiceOperationSet())) {
+      serviceCollectConfiguration.setExcludeServiceOperationSet(
+          new java.util.HashSet<>(effectiveGlobal().getExcludeServiceOperationSet()));
+    }
+    String include = effectiveGlobalIncludeOperations();
+    if (StringUtils.isNotEmpty(include)) {
+      Map<String, String> extendField = new HashMap<>();
+      extendField.put(INCLUDE_SERVICE_OPERATIONS, include);
+      serviceCollectConfiguration.setExtendField(extendField);
+    }
     update(serviceCollectConfiguration);
     return Collections.singletonList(serviceCollectConfiguration);
   }
@@ -61,13 +80,113 @@ public final class ServiceCollectConfigurableHandler extends
     return super.update(configuration) || super.insert(configuration);
   }
 
+  /**
+   * Live field-level inheritance: for each field the application has not explicitly configured
+   * (sentinel: {@code <= 0} / null / empty), fall back to the dynamic global default
+   * ({@code record_global_default}) and then to the built-in YAML default. Configured per-app
+   * fields are never overwritten.
+   */
   @Override
   protected void mergeGlobalDefaultSettings(ServiceCollectConfiguration source) {
+    if (source == null) {
+      return;
+    }
+    ServiceCollectConfiguration fallback = effectiveGlobal();
+    if (source.getSampleRate() <= 0) {
+      source.setSampleRate(fallback.getSampleRate());
+    }
+    if (source.getAllowDayOfWeeks() <= 0) {
+      source.setAllowDayOfWeeks(fallback.getAllowDayOfWeeks());
+    }
+    if (StringUtils.isEmpty(source.getAllowTimeOfDayFrom())) {
+      source.setAllowTimeOfDayFrom(fallback.getAllowTimeOfDayFrom());
+    }
+    if (StringUtils.isEmpty(source.getAllowTimeOfDayTo())) {
+      source.setAllowTimeOfDayTo(fallback.getAllowTimeOfDayTo());
+    }
+    if (source.getRecordMachineCountLimit() == null || source.getRecordMachineCountLimit() <= 0) {
+      source.setRecordMachineCountLimit(fallback.getRecordMachineCountLimit());
+    }
+    if (CollectionUtils.isEmpty(source.getExcludeServiceOperationSet())
+        && CollectionUtils.isNotEmpty(fallback.getExcludeServiceOperationSet())) {
+      source.setExcludeServiceOperationSet(
+          new java.util.HashSet<>(fallback.getExcludeServiceOperationSet()));
+    }
+    Map<String, String> extendField = source.getExtendField();
+    if (MapUtils.isEmpty(extendField)
+        || StringUtils.isEmpty(extendField.get(INCLUDE_SERVICE_OPERATIONS))) {
+      String include = effectiveGlobalIncludeOperations();
+      if (StringUtils.isNotEmpty(include)) {
+        Map<String, String> merged =
+            extendField == null ? new HashMap<>() : new HashMap<>(extendField);
+        merged.put(INCLUDE_SERVICE_OPERATIONS, include);
+        source.setExtendField(merged);
+      }
+    }
   }
 
   @Override
   protected boolean shouldMergeGlobalDefault() {
     return true;
+  }
+
+  /**
+   * The effective recording default: {@code record_global_default} (config_system) with any unset
+   * field falling back to the built-in YAML bean. Exposed so the agent config controller can apply
+   * the same include/exclude defaults.
+   */
+  public ServiceCollectConfiguration effectiveGlobal() {
+    ServiceCollectConfiguration resolved = new ServiceCollectConfiguration();
+    resolved.setSampleRate(globalDefaultConfiguration.getSampleRate());
+    resolved.setAllowDayOfWeeks(globalDefaultConfiguration.getAllowDayOfWeeks());
+    resolved.setTimeMock(globalDefaultConfiguration.isTimeMock());
+    resolved.setAllowTimeOfDayFrom(globalDefaultConfiguration.getAllowTimeOfDayFrom());
+    resolved.setAllowTimeOfDayTo(globalDefaultConfiguration.getAllowTimeOfDayTo());
+    resolved.setRecordMachineCountLimit(
+        globalDefaultConfiguration.getRecordMachineCountLimit() == null ? 1
+            : globalDefaultConfiguration.getRecordMachineCountLimit());
+    RecordGlobalDefault global = loadRecordGlobalDefault();
+    if (global == null) {
+      return resolved;
+    }
+    if (global.getSampleRate() != null && global.getSampleRate() > 0) {
+      resolved.setSampleRate(global.getSampleRate());
+    }
+    if (global.getAllowDayOfWeeks() != null && global.getAllowDayOfWeeks() > 0) {
+      resolved.setAllowDayOfWeeks(global.getAllowDayOfWeeks());
+    }
+    if (StringUtils.isNotEmpty(global.getAllowTimeOfDayFrom())) {
+      resolved.setAllowTimeOfDayFrom(global.getAllowTimeOfDayFrom());
+    }
+    if (StringUtils.isNotEmpty(global.getAllowTimeOfDayTo())) {
+      resolved.setAllowTimeOfDayTo(global.getAllowTimeOfDayTo());
+    }
+    if (global.getRecordMachineCountLimit() != null && global.getRecordMachineCountLimit() > 0) {
+      resolved.setRecordMachineCountLimit(global.getRecordMachineCountLimit());
+    }
+    if (CollectionUtils.isNotEmpty(global.getExcludeServiceOperationSet())) {
+      resolved.setExcludeServiceOperationSet(
+          new java.util.HashSet<>(global.getExcludeServiceOperationSet()));
+    }
+    return resolved;
+  }
+
+  /**
+   * The global default include-operations string, taken directly from {@code record_global_default}
+   * (no built-in YAML equivalent exists for it).
+   */
+  public String effectiveGlobalIncludeOperations() {
+    RecordGlobalDefault global = loadRecordGlobalDefault();
+    return global == null ? null : global.getIncludeServiceOperations();
+  }
+
+  private RecordGlobalDefault loadRecordGlobalDefault() {
+    try {
+      return systemConfigurationRepository.getGlobalConfig(SystemConfigKeys.RECORD_GLOBAL_DEFAULT);
+    } catch (RuntimeException e) {
+      LOGGER.error("load record_global_default failed", e);
+      return null;
+    }
   }
 
   /**
@@ -98,6 +217,9 @@ public final class ServiceCollectConfigurableHandler extends
     // meaning using multi env config
     if (requestInstanceConfigIndex != -1) {
       ServiceCollectConfiguration envConfig = multiEnvConfigs.get(requestInstanceConfigIndex);
+      // apply the same field-level inheritance to the env config so a per-env unset field falls
+      // back to the global/built-in default instead of clobbering the root config with 0/null
+      mergeGlobalDefaultSettings(envConfig);
       rootConfig.setSampleRate(envConfig.getSampleRate());
       rootConfig.setAllowDayOfWeeks(envConfig.getAllowDayOfWeeks());
       rootConfig.setAllowTimeOfDayFrom(envConfig.getAllowTimeOfDayFrom());

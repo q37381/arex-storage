@@ -44,5 +44,19 @@ public class SystemConfigurationCollection extends BaseEntity {
     String JWT_SEED = "jwt_seed";
     String IGNORE_NODE_SET = "ignore_node_set";
     String AGENT_GLOBAL_CONFIG = "agent_global_config";
+    /**
+     * Globally configurable default values, each stored as a JSON document in config_value.
+     * When a per-app config leaves a field unset, the effective value is resolved as
+     * app config > global default (these keys) > built-in YAML default.
+     */
+    String RECORD_GLOBAL_DEFAULT = "record_global_default";
+    String DYNAMIC_CLASS_GLOBAL_DEFAULT = "dynamic_class_global_default";
+    String REPLAY_GLOBAL_DEFAULT = "replay_global_default";
+    String COMPARE_GLOBAL_DEFAULT = "compare_global_default";
+    /**
+     * Allow-list of accounts allowed to write the globally effective configuration, an empty or
+     * absent list leaves the platform unguarded.
+     */
+    String ADMIN_USERS = "admin_users";
   }
 }

@@ -28,6 +28,10 @@
       <artifactId>jakarta.annotation-api</artifactId>
       <groupId>jakarta.annotation</groupId>
     </dependency>
+    <dependency>
+      <artifactId>jackson-databind</artifactId>
+      <groupId>com.fasterxml.jackson.core</groupId>
+    </dependency>
   </dependencies>
 
   <modelVersion>4.0.0</modelVersion>

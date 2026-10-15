@@ -21,4 +21,17 @@ public class InstancesConfiguration extends AbstractConfiguration {
   private Map<String, String> systemEnv;
   private Map<String, String> systemProperties;
   private Map<String, String> extendField;
+
+  /**
+   * Read-only config-delivery trace, maintained by the agent pull / heartbeat
+   * endpoints of the storage service. It is never part of the report upsert, so
+   * neither an agent report nor a console edit can overwrite what a machine
+   * actually pulled.
+   */
+  private Long lastLoadTime;
+  private Long lastLoadVersion;
+  private Map<String, Object> lastLoadConfig;
+  private Long lastHeartbeatTime;
+  private String agentCurrentRate;
+  private Integer agentDecelerateCode;
 }

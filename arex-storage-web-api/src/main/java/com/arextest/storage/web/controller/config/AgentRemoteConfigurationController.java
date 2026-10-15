@@ -23,7 +23,10 @@ import com.arextest.storage.trace.MDCTracer;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -117,7 +120,8 @@ public final class AgentRemoteConfigurationController {
       List<InstancesConfiguration> envInstance = collectConfigAndInstance.getRight();
 
       AgentRemoteConfigurationResponse body = new AgentRemoteConfigurationResponse();
-      body.setDynamicClassConfigurationList(dynamicClassHandler.useResultAsList(appId));
+      body.setDynamicClassConfigurationList(
+          mergeDynamicClassGlobalDefault(appId, dynamicClassHandler.useResultAsList(appId)));
       body.setServiceCollectConfiguration(collectConfig);
       // merge: global config (lowest) -> per-app config -> instance config (highest)
       Map<String, String> mergedExtendField = new HashMap<>(loadAgentGlobalConfig());
@@ -150,6 +154,12 @@ public final class AgentRemoteConfigurationController {
 
       // asynchronously update application env
       asyncUpdateAppEnv(requestInstance);
+      // observability: remember when this machine pulled, at which config version,
+      // and what exactly was handed to it
+      instanceHandler.updateLoadTrace(appId, StringUtils.defaultString(request.getHost()),
+          System.currentTimeMillis(),
+          collectConfig.getModifiedTime() == null ? null : collectConfig.getModifiedTime().getTime(),
+          buildLoadSnapshot(applicationConfiguration, collectConfig, body));
       try {
         CompareConfiguration compareConfiguration = queryConfigService.queryCompareConfiguration(appId);
         body.setCompareConfiguration(compareConfiguration);
@@ -193,6 +203,10 @@ public final class AgentRemoteConfigurationController {
             instancesConfiguration.getHost());
       } else {
         instanceHandler.createOrUpdate(instancesConfiguration);
+        // observability: heartbeat clock plus the rate the agent really applies
+        instanceHandler.updateHeartbeatTrace(appId,
+            StringUtils.defaultString(instancesConfiguration.getHost()),
+            System.currentTimeMillis(), request.getCurrentRate(), request.getDecelerateCode());
         // get the latest time
         ServiceCollectConfiguration serviceConfig =
             serviceCollectHandler.useResult(instancesConfiguration.getAppId());
@@ -239,6 +253,35 @@ public final class AgentRemoteConfigurationController {
     return java.util.Collections.emptyMap();
   }
 
+  /**
+   * Snapshot of what is being handed to one machine, so the console can show per
+   * instance which sample rate / recording window / extendField actually landed.
+   * Serialization failures never break the config pull.
+   */
+  private String buildLoadSnapshot(ApplicationConfiguration application,
+      ServiceCollectConfiguration collectConfig, AgentRemoteConfigurationResponse body) {
+    Map<String, Object> snapshot = new LinkedHashMap<>();
+    snapshot.put("sampleRate", collectConfig.getSampleRate());
+    snapshot.put("allowDayOfWeeks", collectConfig.getAllowDayOfWeeks());
+    snapshot.put("allowTimeOfDayFrom", collectConfig.getAllowTimeOfDayFrom());
+    snapshot.put("allowTimeOfDayTo", collectConfig.getAllowTimeOfDayTo());
+    snapshot.put("recordMachineCountLimit", collectConfig.getRecordMachineCountLimit());
+    snapshot.put("agentEnabled", body.getAgentEnabled());
+    snapshot.put("targetAddress", body.getTargetAddress());
+    snapshot.put("message", body.getMessage());
+    snapshot.put("appStatus", application == null ? null : application.getStatus());
+    snapshot.put("dynamicClassCount",
+        body.getDynamicClassConfigurationList() == null ? 0
+            : body.getDynamicClassConfigurationList().size());
+    snapshot.put("extendField", body.getExtendField());
+    try {
+      return objectMapper.writeValueAsString(snapshot);
+    } catch (JsonProcessingException e) {
+      LOGGER.error("build load snapshot error, appId:{}", collectConfig.getAppId(), e);
+      return null;
+    }
+  }
+
   private Map<String, String> getExtendField(
       ServiceCollectConfiguration serviceCollectConfiguration) {
     Map<String, String> extendField = new HashMap<>();
@@ -280,6 +323,50 @@ public final class AgentRemoteConfigurationController {
 
   private ApplicationConfiguration loadApplicationResult(AgentRemoteConfigurationRequest request) {
     return applicationHandler.useResult(request.getAppId());
+  }
+
+  /**
+   * Union the application's dynamic classes with the global default set
+   * ({@code dynamic_class_global_default}). Application entries win; a global entry is appended
+   * only when no application entry shares the same class + method + parameterTypes signature.
+   */
+  private List<DynamicClassConfiguration> mergeDynamicClassGlobalDefault(String appId,
+      List<DynamicClassConfiguration> appList) {
+    List<DynamicClassConfiguration> globalList = loadDynamicClassGlobalDefault();
+    if (CollectionUtils.isEmpty(globalList)) {
+      return appList;
+    }
+    List<DynamicClassConfiguration> result = new ArrayList<>();
+    Set<String> signatures = new HashSet<>();
+    if (CollectionUtils.isNotEmpty(appList)) {
+      for (DynamicClassConfiguration dynamicClass : appList) {
+        result.add(dynamicClass);
+        signatures.add(dynamicClassSignature(dynamicClass));
+      }
+    }
+    for (DynamicClassConfiguration dynamicClass : globalList) {
+      if (signatures.add(dynamicClassSignature(dynamicClass))) {
+        dynamicClass.setAppId(appId);
+        result.add(dynamicClass);
+      }
+    }
+    return result;
+  }
+
+  private String dynamicClassSignature(DynamicClassConfiguration dynamicClass) {
+    return StringUtils.defaultString(dynamicClass.getFullClassName()) + "#"
+        + StringUtils.defaultString(dynamicClass.getMethodName()) + "#"
+        + StringUtils.defaultString(dynamicClass.getParameterTypes());
+  }
+
+  private List<DynamicClassConfiguration> loadDynamicClassGlobalDefault() {
+    try {
+      return systemConfigurationRepository.getGlobalConfig(
+          com.arextest.config.system.SystemConfigKeys.DYNAMIC_CLASS_GLOBAL_DEFAULT);
+    } catch (Exception e) {
+      LOGGER.error("load dynamic_class_global_default error", e);
+      return null;
+    }
   }
 
   @AllArgsConstructor

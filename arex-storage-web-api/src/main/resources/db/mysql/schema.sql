@@ -197,6 +197,15 @@ CREATE TABLE IF NOT EXISTS `config_instances` (
   `system_env`              TEXT         DEFAULT NULL COMMENT 'JSON object',
   `system_properties`       TEXT         DEFAULT NULL COMMENT 'JSON object',
   `extend_field`            TEXT         DEFAULT NULL COMMENT 'JSON object',
+  -- Config-delivery trace, written only by the dedicated UPDATE statements of
+  -- the agent heartbeat / config pull paths (never by the report upsert), so a
+  -- UI edit or an agent report cannot overwrite what a machine actually pulled.
+  `last_load_time`          BIGINT       DEFAULT NULL COMMENT 'server time of the last /api/config/agent/load',
+  `last_load_version`       BIGINT       DEFAULT NULL COMMENT 'config_record_service.data_change_update_time delivered on that pull',
+  `last_load_config`        TEXT         DEFAULT NULL COMMENT 'JSON snapshot of what was delivered',
+  `last_heartbeat_time`     BIGINT       DEFAULT NULL COMMENT 'server time of the last /api/config/agent/agentStatus',
+  `agent_current_rate`      VARCHAR(16)  DEFAULT NULL COMMENT 'record rate actually applied by the agent',
+  `agent_decelerate_code`   INT          DEFAULT NULL COMMENT 'deceleration reason code reported by the agent',
   `data_change_create_time` BIGINT       DEFAULT NULL,
   `data_change_update_time` BIGINT       DEFAULT NULL,
   PRIMARY KEY (`auto_id`),
@@ -204,19 +213,12 @@ CREATE TABLE IF NOT EXISTS `config_instances` (
   UNIQUE KEY `uk_app_host` (`app_id`, `host`)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
 
--- System configuration (mongo: SystemConfiguration), key-value style.
+-- System configuration (mongo: SystemConfiguration), pure key-value.
 CREATE TABLE IF NOT EXISTS `config_system` (
-  `auto_id`                     BIGINT       NOT NULL AUTO_INCREMENT,
+  `auto_id`                 BIGINT       NOT NULL AUTO_INCREMENT,
   `id`                      VARCHAR(64)  NOT NULL,
   `config_key`              VARCHAR(128) NOT NULL,
-  `refresh_task_mark`       TEXT         DEFAULT NULL COMMENT 'JSON object',
-  `desensitization_jar`     TEXT         DEFAULT NULL COMMENT 'JSON object',
-  `callback_url`            VARCHAR(1024) DEFAULT NULL,
-  `auth_switch`             TINYINT(1)   DEFAULT NULL,
-  `compare_plugin_info`     TEXT         DEFAULT NULL COMMENT 'JSON object',
-  `jwt_seed`                VARCHAR(255) DEFAULT NULL,
-  `ignore_node_set`         TEXT         DEFAULT NULL COMMENT 'JSON array',
-  `config_value`          TEXT         DEFAULT NULL COMMENT 'generic config value (JSON or string)',
+  `config_value`            TEXT         DEFAULT NULL,
   `data_change_create_time` BIGINT       DEFAULT NULL,
   `data_change_update_time` BIGINT       DEFAULT NULL,
   PRIMARY KEY (`auto_id`),

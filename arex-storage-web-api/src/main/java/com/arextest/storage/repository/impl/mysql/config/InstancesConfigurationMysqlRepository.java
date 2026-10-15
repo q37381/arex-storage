@@ -77,4 +77,28 @@ public class InstancesConfigurationMysqlRepository extends InstancesConfiguratio
   public boolean removeByAppIdAndHost(String appId, String host) {
     return mapper.deleteByAppIdAndHost(appId, host) > 0;
   }
+
+  /**
+   * Stores what a machine pulled on /api/config/agent/load. Deliberately not
+   * part of {@link #update}: the trace must survive agent reports and console
+   * edits of the same row.
+   */
+  public boolean updateLoadTrace(String appId, String host, long loadTime, Long loadVersion,
+      String loadConfigJson) {
+    if (appId == null || host == null) {
+      return false;
+    }
+    return mapper.updateLoadTrace(appId, host, loadTime, loadVersion, loadConfigJson) >= 0;
+  }
+
+  /**
+   * Stores the per-minute heartbeat together with the rate the agent applies.
+   */
+  public boolean updateHeartbeatTrace(String appId, String host, long heartbeatTime,
+      String currentRate, Integer decelerateCode) {
+    if (appId == null || host == null) {
+      return false;
+    }
+    return mapper.updateHeartbeatTrace(appId, host, heartbeatTime, currentRate, decelerateCode) >= 0;
+  }
 }

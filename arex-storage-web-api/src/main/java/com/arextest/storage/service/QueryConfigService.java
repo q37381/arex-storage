@@ -6,6 +6,7 @@ import com.arextest.config.model.dao.config.SystemConfigurationCollection.KeySum
 import com.arextest.config.model.dto.ComparisonExclusionsConfiguration;
 import com.arextest.config.model.dto.application.AppContract;
 import com.arextest.config.model.dto.application.ApplicationOperationConfiguration;
+import com.arextest.config.model.dto.system.CompareGlobalDefault;
 import com.arextest.config.model.dto.system.SystemConfiguration;
 import com.arextest.config.model.vo.CompareConfiguration;
 import com.arextest.config.model.vo.ConfigComparisonExclusion;
@@ -15,6 +16,7 @@ import com.arextest.config.model.vo.QueryConfigOfCategoryResponse.QueryConfigOfC
 import com.arextest.config.repository.SystemConfigurationRepository;
 import com.arextest.config.repository.impl.ApplicationOperationConfigurationRepositoryImpl;
 import com.arextest.config.repository.impl.ComparisonExclusionsConfigurationRepositoryImpl;
+import com.arextest.config.system.SystemConfigKeys;
 import com.arextest.model.mock.Mocker;
 import com.arextest.storage.cache.CacheKeyUtils;
 import com.arextest.storage.client.HttpWebServiceApiClient;
@@ -124,6 +126,12 @@ public class QueryConfigService {
     }
 
     compareConfiguration.setComparisonExclusions(comparisonExclusions);
+    if (CollectionUtils.isEmpty(compareConfiguration.getGlobalExclusionList())) {
+      CompareGlobalDefault globalDefault = loadCompareGlobalDefault();
+      if (globalDefault != null && CollectionUtils.isNotEmpty(globalDefault.getGlobalExclusionList())) {
+        compareConfiguration.setGlobalExclusionList(globalDefault.getGlobalExclusionList());
+      }
+    }
     compareConfiguration.setIgnoreNodeSet(getIgnoreNodeSet());
 
     return compareConfiguration;
@@ -146,10 +154,23 @@ public class QueryConfigService {
   }
 
   private Set<String> getIgnoreNodeSet() {
+    CompareGlobalDefault globalDefault = loadCompareGlobalDefault();
+    if (globalDefault != null && CollectionUtils.isNotEmpty(globalDefault.getIgnoreNodeSet())) {
+      return globalDefault.getIgnoreNodeSet();
+    }
     SystemConfiguration systemConfiguration = systemConfigurationRepository.getSystemConfigByKey(
         KeySummary.IGNORE_NODE_SET);
     return systemConfiguration == null ? Collections.emptySet()
         : systemConfiguration.getIgnoreNodeSet();
+  }
+
+  private CompareGlobalDefault loadCompareGlobalDefault() {
+    try {
+      return systemConfigurationRepository.getGlobalConfig(SystemConfigKeys.COMPARE_GLOBAL_DEFAULT);
+    } catch (RuntimeException e) {
+      LOGGER.error("load compare_global_default failed", e);
+      return null;
+    }
   }
 
   private List<ConfigComparisonExclusion> getComparisonExclusions(

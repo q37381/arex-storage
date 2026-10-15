@@ -114,6 +114,13 @@ public final class ConfigEntities {
     private String systemEnv;
     private String systemProperties;
     private String extendField;
+    // config-delivery trace, written only by the dedicated UPDATE statements
+    private Long lastLoadTime;
+    private Long lastLoadVersion;
+    private String lastLoadConfig;
+    private Long lastHeartbeatTime;
+    private String agentCurrentRate;
+    private Integer agentDecelerateCode;
     private Long dataChangeCreateTime;
     private Long dataChangeUpdateTime;
   }
@@ -123,13 +130,6 @@ public final class ConfigEntities {
 
     private String id;
     private String configKey;
-    private String refreshTaskMark;
-    private String desensitizationJar;
-    private String callbackUrl;
-    private Boolean authSwitch;
-    private String comparePluginInfo;
-    private String jwtSeed;
-    private String ignoreNodeSet;
     private String configValue;
     private Long dataChangeCreateTime;
     private Long dataChangeUpdateTime;
